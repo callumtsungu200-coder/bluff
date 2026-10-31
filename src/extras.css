@@ -1,0 +1,131 @@
+/* ------------------------------------------------------------------
+   Extras: settings menu, switches, keyboard hints, stats panel.
+   Every colour and face comes from the tokens in styles.css, so the
+   Futuristic theme applies on its own; a few rules below tune it.
+   ------------------------------------------------------------------ */
+
+/* ---------- settings menu ---------- */
+
+.menu { position: relative; display: inline-flex; }
+
+.menu__gear { padding: 0 9px; min-width: 34px; }
+.menu__gear svg { width: 16px; height: 16px; display: block; transition: transform var(--med) var(--ease); }
+.menu__gear[aria-expanded="true"] { border-color: var(--ink-3); }
+.menu__gear[aria-expanded="true"] svg { transform: rotate(60deg); }
+
+.menu__pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
+  width: 320px;
+  padding: 6px 16px 14px;
+  text-align: left;
+  color: var(--ink);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.7);
+  transform-origin: top right;
+  animation: menu-in 220ms var(--spring) both;
+}
+@keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(0.96); } }
+
+.menu__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 48px; padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+.menu__label { font-size: 14px; font-weight: 500; line-height: 1.25; }
+.menu__hint { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; color: var(--ink-3); }
+
+.menu__section { padding: 12px 0 12px; border-bottom: 1px solid var(--line); }
+.menu__section > .eyebrow { display: block; margin-bottom: 9px; }
+.menu__section:last-child, .menu__row:last-child { border-bottom: 0; padding-bottom: 2px; }
+/* inside the menu the record sits on a tidy 3-column grid instead of wrapping */
+.menu__section .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+
+/* reuses .segmented from styles.css; these sizes are local */
+.menu__seg { display: grid; grid-template-columns: repeat(2, 1fr); width: 144px; flex: none; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.menu__seg button { min-height: 32px; padding: 0 10px; font-size: 12px; font-weight: 600; }
+
+.menu__confirm { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 13px; color: var(--ink-2); animation: menu-fade var(--fast) var(--ease) both; }
+.menu__confirm span { flex: 1; }
+.menu__done { font-size: 13px; color: var(--green); font-weight: 600; animation: menu-fade var(--fast) var(--ease) both; }
+@keyframes menu-fade { from { opacity: 0; } }
+
+/* ---------- switch ---------- */
+
+.switch {
+  position: relative; flex: none;
+  width: 44px; height: 26px; padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: background var(--fast), border-color var(--fast);
+}
+.switch__knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--ink-2);
+  transition: transform var(--fast) var(--spring), background var(--fast);
+}
+.switch.is-on { background: var(--gold); border-color: var(--gold); }
+.switch.is-on .switch__knob { transform: translateX(18px); background: #2a1f08; }
+.switch:disabled { opacity: 0.4; cursor: default; }
+.switch:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+/* ---------- keyboard hints ---------- */
+
+.keys {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 7px;
+  font-size: 13px; color: var(--ink-2);
+}
+.keys li { display: contents; }
+.keys kbd {
+  justify-self: start; align-self: center;
+  min-width: 28px; padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--line); border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-family: var(--sans); font-size: 11px; font-weight: 600; line-height: 1.4;
+  text-align: center;
+}
+
+/* ---------- stats ---------- */
+
+.stats { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; }
+.stats__item { display: flex; flex-direction: column-reverse; gap: 3px; min-width: 0; }
+.stats__label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+.stats__value {
+  margin: 0;
+  font-family: var(--serif); font-size: 24px; font-weight: 700; line-height: 1;
+  letter-spacing: var(--track-num); font-variant-numeric: tabular-nums;
+}
+.stats__value.is-gold { color: var(--gold); }
+.stats__empty, .stats__foot { margin: 0; font-size: 13px; color: var(--ink-2); }
+.stats__foot { width: 100%; margin-top: 2px; }
+
+.stats--compact { gap: 6px 18px; }
+.stats--compact .stats__value { font-size: 18px; }
+.stats--compact .stats__label { font-size: 10px; }
+
+/* ---------- futuristic theme ---------- */
+
+[data-theme="future"] .menu__pop { border-radius: 6px; box-shadow: none; }
+[data-theme="future"] .menu__seg button { font-family: var(--serif); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+[data-theme="future"] .switch.is-on .switch__knob { background: var(--bg); }
+[data-theme="future"] .keys kbd { font-family: var(--serif); font-weight: 400; border-radius: 3px; }
+[data-theme="future"] .stats__value { font-weight: 400; letter-spacing: 0; }
+[data-theme="future"] .stats__label { font-family: var(--serif); letter-spacing: 0.12em; }
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 560px) {
+  .menu__pop {
+    position: fixed; top: auto; left: 12px; right: 12px; bottom: 12px;
+    width: auto; max-height: calc(100vh - 24px); overflow-y: auto;
+    transform-origin: bottom center;
+  }
+  .stats { gap: 8px 16px; }
+}

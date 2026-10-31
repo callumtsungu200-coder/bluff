@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bluff card artwork</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Sora:wght@300;400;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg: #1f6b47; --ink: rgba(255,255,255,0.75); --line: rgba(255,255,255,0.18); }
+    html[data-theme="future"] { --bg: #141a26; --ink: rgba(230,234,242,0.75); --line: rgba(92,225,230,0.25); }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 14px 16px 24px; background: var(--bg); color: var(--ink); font: 12px/1.3 "Inter", system-ui, sans-serif; }
+    h2 { margin: 0 0 6px; font: 600 11px/1 "Inter", system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); }
+    section { margin-bottom: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(13, max-content); gap: 7px; }
+    .grid canvas, .back canvas { display: block; }
+    .row2 { display: flex; gap: 28px; align-items: flex-start; }
+    .hand { position: relative; height: 150px; width: 640px; }
+    .hand canvas { position: absolute; left: 0; top: 14px; transform-origin: 50% 130%; filter: drop-shadow(-3px 2px 3px rgba(0,0,0,0.45)); }
+    .pileWrap { perspective: 520px; perspective-origin: 50% 0%; height: 110px; width: 360px; }
+    .pile { position: relative; height: 100%; width: 100%; transform: rotateX(52deg); transform-style: preserve-3d; }
+    .pile canvas { position: absolute; left: 150px; top: 20px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
+    .note { margin-top: 6px; opacity: 0.7; }
+    .legend { display: flex; gap: 18px; margin-bottom: 10px; opacity: 0.8; }
+    .fonts { font-family: "Outfit"; } .fonts b { font-family: "Space Mono"; }
+  </style>
+</head>
+<body>
+  <div class="legend">
+    <span id="meta"></span>
+    <span class="fonts">Outfit <b>Space Mono</b> <i style="font-family: Sora">Sora</i></span>
+  </div>
+  <section>
+    <h2 id="gridTitle">Deck</h2>
+    <div class="grid" id="grid"></div>
+  </section>
+  <div class="row2">
+    <section class="back">
+      <h2>Back</h2>
+      <div id="back"></div>
+    </section>
+    <section>
+      <h2 id="handTitle">Hand</h2>
+      <div class="hand" id="hand"></div>
+    </section>
+    <section>
+      <h2>Pile, 60 px, at an angle</h2>
+      <div class="pileWrap"><div class="pile" id="pile"></div></div>
+    </section>
+  </div>
+  <section>
+    <h2>Pile, 60 px, flat</h2>
+    <div class="grid" id="pileFlat" style="grid-template-columns: repeat(14, max-content)"></div>
+  </section>
+  <script type="module">
+    import { drawFace, drawBack, deck, loadCardFonts, CARD_PX, PALETTE, RANK_LABELS, LAYOUT, SUIT_HALF_WIDTH } from '/src/scene/cardArt.js';
+
+    const q = new URLSearchParams(location.search);
+    const theme = PALETTE[q.get('theme')] ? q.get('theme') : 'classic';
+    const small = q.get('size') === 'small';
+    const seed = Number(q.get('seed') || 7);
+    const overlap = Number(q.get('visible') || 0.38);
+    document.documentElement.dataset.theme = theme;
+
+    // ?cards=As,10h,Qd limits the deck grid to those cards; ?hand=K h,10c,... pins the hand.
+    const SUIT_CODE = { s: '♠', h: '♥', d: '♦', c: '♣' };
+    const parseCards = (text) => (text || '').split(',').map((t) => t.trim()).filter(Boolean).map((t) => {
+      const rank = RANK_LABELS.indexOf(t.slice(0, -1).toUpperCase());
+      const suit = SUIT_CODE[t.slice(-1).toLowerCase()];
+      return rank >= 0 && suit ? { rank, suit } : null;
+    }).filter(Boolean);
+    const onlyCards = parseCards(q.get('cards'));
+    const pinnedHand = parseCards(q.get('hand'));
+
+    // Deterministic shuffle so screenshots compare across iterations.
+    let s = seed >>> 0;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+
+    // Draw at full texture size, then shrink in halving steps (what a mipmapped texture looks like),
+    // so the thumbnails are a fair preview of the 3D scene rather than a nearest-neighbour squash.
+    const full = document.createElement('canvas');
+    full.width = CARD_PX.w; full.height = CARD_PX.h;
+    const fctx = full.getContext('2d');
+    function thumb(draw, heightPx) {
+      draw(fctx);
+      const dpr = window.devicePixelRatio || 1;
+      const targetH = Math.round(heightPx * dpr);
+      const targetW = Math.round(targetH * CARD_PX.w / CARD_PX.h);
+      let src = full, sw = full.width, sh = full.height;
+      while (sh / 2 > targetH) {
+        const c = document.createElement('canvas');
+        c.width = Math.round(sw / 2); c.height = Math.round(sh / 2);
+        const x = c.getContext('2d');
+        x.imageSmoothingQuality = 'high';
+        x.drawImage(src, 0, 0, c.width, c.height);
+        src = c; sw = c.width; sh = c.height;
+      }
+      const out = document.createElement('canvas');
+      out.width = targetW; out.height = targetH;
+      out.style.width = `${targetW / dpr}px`;
+      out.style.height = `${targetH / dpr}px`;
+      const o = out.getContext('2d');
+      o.imageSmoothingQuality = 'high';
+      o.drawImage(src, 0, 0, targetW, targetH);
+      return out;
+    }
+
+    await loadCardFonts();
+    const cards = deck();
+    document.getElementById('meta').textContent = `theme=${theme} · ${CARD_PX.w}x${CARD_PX.h} textures · fonts ${document.fonts.check('700 20px "Outfit"') && document.fonts.check('700 20px "Space Mono"') ? 'ready' : 'MISSING'}`;
+
+    // 1. the deck
+    const gridH = small ? 90 : q.get('size') === 'big' ? 330 : 160;
+    document.getElementById('gridTitle').textContent = `Deck, ${gridH} px`;
+    const grid = document.getElementById('grid');
+    if (q.get('size') === 'big') { grid.style.display = 'flex'; grid.style.flexWrap = 'wrap'; }
+    for (const card of onlyCards.length ? onlyCards : cards) grid.appendChild(thumb((c) => drawFace(c, card, theme), gridH));
+
+    // 2. the back
+    document.getElementById('back').appendChild(thumb((c) => drawBack(c, theme), 150));
+
+    // 3. the hand: 13 random cards, overlapped so only `overlap` of each face shows, fanned
+    const handH = 120;
+    const handW = handH * CARD_PX.w / CARD_PX.h;
+    const step = handW * overlap;
+    document.getElementById('handTitle').textContent = `Hand, ${handH} px, ${Math.round(overlap * 100)}% of each face visible`;
+    const pool = cards.slice();
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    const hand = pinnedHand.length ? pinnedHand : pool.slice(0, 13);
+    const handEl = document.getElementById('hand');
+    hand.forEach((card, i) => {
+      const t = thumb((c) => drawFace(c, card, theme), handH);
+      const k = i - 6;
+      t.style.left = `${20 + i * step}px`;
+      t.style.transform = `rotate(${k * 1.4}deg) translateY(${Math.abs(k) * 1.6}px)`;
+      t.style.zIndex = i;
+      handEl.appendChild(t);
+    });
+
+    // 4. the pile at an angle: a few cards thrown down, the newest on top
+    const pileEl = document.getElementById('pile');
+    const pile = pool.slice(13, 19);
+    pile.forEach((card, i) => {
+      const t = thumb((c) => drawFace(c, card, theme), 60);
+      t.style.transform = `translate(${(rnd() - 0.5) * 36}px, ${(rnd() - 0.5) * 24}px) rotate(${(rnd() - 0.5) * 50}deg)`;
+      t.style.zIndex = i;
+      pileEl.appendChild(t);
+    });
+    // and the back on the pile too (the bots' face-down plays)
+    const b = thumb((c) => drawBack(c, theme), 60);
+    b.style.transform = `translate(60px, 10px) rotate(14deg)`;
+    pileEl.appendChild(b);
+
+    // 5. the pile size, flat: one of each rank plus the back
+    const flat = document.getElementById('pileFlat');
+    for (let r = 0; r < 13; r++) flat.appendChild(thumb((c) => drawFace(c, { rank: r, suit: ['♠', '♥', '♦', '♣'][r % 4] }, theme), 60));
+    flat.appendChild(thumb((c) => drawBack(c, theme), 60));
+
+    // 6. ?probe=1: measure the top-left rank ink of every rank in both themes (the strip of the face
+    // that shows in an overlapped hand is the left 35 percent; the target for the rank is the left
+    // 27 percent, 207 px) and print it as JSON, for headless checks (chrome --dump-dom). On the 4 to
+    // 10 the top row's left pip now reaches into the corner of the window, so that corner (right of
+    // the pip's edge and below its top) is skipped, and the entry carries the pip edge and the gap
+    // between it and the rank, `clear`, which must stay positive.
+    if (q.get('probe')) {
+      const probe = {};
+      const pipTop = LAYOUT.pips.top - LAYOUT.pips.size / 2;
+      for (const t of Object.keys(PALETTE)) {
+        probe[t] = {};
+        for (const suit of ['♠', '♥']) for (let rank = 0; rank < 13; rank++) {
+          drawFace(fctx, { rank, suit }, t);
+          const sidePips = rank >= 3 && rank <= 9;
+          const pipLeft = sidePips ? CARD_PX.w / 2 - LAYOUT.pips.col - SUIT_HALF_WIDTH[suit] * LAYOUT.pips.size : null;
+          const x0 = 5, y0 = 10, x1 = 226, y1 = 238; // above the index suit, left of the pips and the court panel
+          const d = fctx.getImageData(x0, y0, x1 - x0, y1 - y0).data;
+          const w = x1 - x0;
+          let minx = 1e9, maxx = -1, miny = 1e9, maxy = -1;
+          for (let y = 0; y < y1 - y0; y++) for (let x = 0; x < w; x++) {
+            if (pipLeft !== null && x + x0 >= pipLeft - 3 && y + y0 >= pipTop - 3) continue;
+            const i = (y * w + x) * 4;
+            const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+            const ink = a > 128 && ((r < 100 && g < 100 && b < 120) || (r > 140 && g < 120 && b < 130));
+            if (ink) { if (x < minx) minx = x; if (x > maxx) maxx = x; if (y < miny) miny = y; if (y > maxy) maxy = y; }
+          }
+          const key = RANK_LABELS[rank] + (suit === '♠' ? 's' : 'h');
+          const entry = maxx < 0 ? null : { left: minx + x0, right: maxx + x0, top: miny + y0, bottom: maxy + y0, rightPct: +((maxx + x0) / CARD_PX.w * 100).toFixed(1) };
+          if (entry && pipLeft !== null) { entry.pipLeft = Math.round(pipLeft); entry.clear = Math.round(pipLeft) - entry.right; }
+          probe[t][key] = entry;
+        }
+      }
+      const pre = document.createElement('pre');
+      pre.id = 'probe';
+      pre.textContent = JSON.stringify(probe);
+      document.body.appendChild(pre);
+    }
+    document.documentElement.dataset.ready = '1';
+  </script>
+</body>
+</html>
