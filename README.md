@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/callumtsungu200-coder/bluff/actions/workflows/ci.yml/badge.svg)](https://github.com/callumtsungu200-coder/bluff/actions/workflows/ci.yml)
 
+**[▶ Play Bluff in your browser](https://callumtsungu200-coder.github.io/bluff/)**
+
 A 3D card game about lying well and catching liars. You play the card game Bluff (also called Cheat) against three computer opponents, each with its own personality, around a table rendered in WebGL.
 
 ![The Bluff table at the start of a game](docs/table.jpg)
